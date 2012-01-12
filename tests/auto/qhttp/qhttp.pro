@@ -1,7 +1,7 @@
 CONFIG += testcase
-TARGET = tst_qhttp
 SOURCES  += tst_qhttp.cpp
-
+INCLUDEPATH += "../../../include"
+LIBS += -L../../../lib -lqhttp
 
 QT = core network testlib
 
@@ -20,4 +20,4 @@ wince*: {
     DEFINES += SRCDIR=\\\"$$PWD/\\\"
 }
 
-CONFIG+=insignificant_test
+CONFIG+=insignificant_test # QTQAINFRA-428
