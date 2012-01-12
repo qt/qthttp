@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef QAUTHENTICATOR_P_H
-#define QAUTHENTICATOR_P_H
+#ifndef QHTTPAUTHENTICATOR_P_H
+#define QHTTPAUTHENTICATOR_P_H
 
 //
 //  W A R N I N G
@@ -56,18 +56,53 @@
 #include <qhash.h>
 #include <qbytearray.h>
 #include <qstring.h>
-#include <qauthenticator.h>
 #include <qvariant.h>
-
-QT_BEGIN_NAMESPACE
+#include <QAuthenticator>
 
 class QHttpResponseHeader;
 
-class Q_AUTOTEST_EXPORT QAuthenticatorPrivate
+class QHttpAuthenticatorPrivate;
+class QUrl;
+
+class QHttpAuthenticator
+{
+public:
+    QHttpAuthenticator();
+    ~QHttpAuthenticator();
+
+    QHttpAuthenticator(const QHttpAuthenticator &other);
+    QHttpAuthenticator &operator=(const QHttpAuthenticator &other);
+
+    bool operator==(const QHttpAuthenticator &other) const;
+    inline bool operator!=(const QHttpAuthenticator &other) const { return !operator==(other); }
+
+    QString user() const;
+    void setUser(const QString &user);
+
+    QString password() const;
+    void setPassword(const QString &password);
+
+    QString realm() const;
+
+    QVariant option(const QString &opt) const;
+    QVariantHash options() const;
+    void setOption(const QString &opt, const QVariant &value);
+
+    bool isNull() const;
+    void detach();
+
+    QHttpAuthenticator &operator=(const QAuthenticator& auth);
+    QAuthenticator toQAuthenticator();
+private:
+    friend class QHttpAuthenticatorPrivate;
+    QHttpAuthenticatorPrivate *d;
+};
+
+class QHttpAuthenticatorPrivate
 {
 public:
     enum Method { None, Basic, Plain, Login, Ntlm, CramMd5, DigestMd5 };
-    QAuthenticatorPrivate();
+    QHttpAuthenticatorPrivate();
 
     QAtomicInt ref;
     QString user;
@@ -97,8 +132,8 @@ public:
 
     QByteArray calculateResponse(const QByteArray &method, const QByteArray &path);
 
-    inline static QAuthenticatorPrivate *getPrivate(QAuthenticator &auth) { return auth.d; }
-    inline static const QAuthenticatorPrivate *getPrivate(const QAuthenticator &auth) { return auth.d; }
+    inline static QHttpAuthenticatorPrivate *getPrivate(QHttpAuthenticator &auth) { return auth.d; }
+    inline static const QHttpAuthenticatorPrivate *getPrivate(const QHttpAuthenticator &auth) { return auth.d; }
 
     QByteArray digestMd5Response(const QByteArray &challenge, const QByteArray &method, const QByteArray &path);
     static QHash<QByteArray, QByteArray> parseDigestAuthenticationChallenge(const QByteArray &challenge);
@@ -109,8 +144,5 @@ public:
     void parseHttpResponse(const QList<QPair<QByteArray, QByteArray> >&, bool isProxy);
 
 };
-
-
-QT_END_NAMESPACE
 
 #endif
