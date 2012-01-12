@@ -39,13 +39,12 @@
 **
 ****************************************************************************/
 
-#include <qauthenticator.h>
-#include <qauthenticator_p.h>
+#include "qhttpauthenticator_p.h"
 #include <qdebug.h>
 #include <qhash.h>
 #include <qbytearray.h>
 #include <qcryptographichash.h>
-#include <private/qhttpheader_p.h>
+#include "qhttp.h"
 #include <qiodevice.h>
 #include <qdatastream.h>
 #include <qendian.h>
@@ -61,25 +60,25 @@ QT_BEGIN_NAMESPACE
 #endif
 
 static QByteArray qNtlmPhase1();
-static QByteArray qNtlmPhase3(QAuthenticatorPrivate *ctx, const QByteArray& phase2data);
+static QByteArray qNtlmPhase3(QHttpAuthenticatorPrivate *ctx, const QByteArray& phase2data);
 
 /*!
-  \class QAuthenticator
-  \brief The QAuthenticator class provides an authentication object.
+  \class QHttpAuthenticator
+  \brief The QHttpAuthenticator class provides an authentication object.
   \since 4.3
 
   \reentrant
   \ingroup network
   \inmodule QtNetwork
 
-  The QAuthenticator class is usually used in the
+  The QHttpAuthenticator class is usually used in the
   \l{QNetworkAccessManager::}{authenticationRequired()} and
   \l{QNetworkAccessManager::}{proxyAuthenticationRequired()} signals of QNetworkAccessManager and
   QAbstractSocket. The class provides a way to pass back the required
   authentication information to the socket when accessing services that
   require authentication.
 
-  QAuthenticator supports the following authentication methods:
+  QHttpAuthenticator supports the following authentication methods:
   \list
     \o Basic
     \o NTLM version 1
@@ -91,7 +90,7 @@ static QByteArray qNtlmPhase3(QAuthenticatorPrivate *ctx, const QByteArray& phas
   \section1 Options
 
   In addition to the username and password required for authentication, a
-  QAuthenticator object can also contain additional options. The
+  QHttpAuthenticator object can also contain additional options. The
   options() function can be used to query incoming options sent by
   the server; the setOption() function can
   be used to set outgoing options, to be processed by the authenticator
@@ -133,7 +132,7 @@ static QByteArray qNtlmPhase3(QAuthenticatorPrivate *ctx, const QByteArray& phas
 /*!
   Constructs an empty authentication object
 */
-QAuthenticator::QAuthenticator()
+QHttpAuthenticator::QHttpAuthenticator()
     : d(0)
 {
 }
@@ -141,7 +140,7 @@ QAuthenticator::QAuthenticator()
 /*!
   Destructs the object
 */
-QAuthenticator::~QAuthenticator()
+QHttpAuthenticator::~QHttpAuthenticator()
 {
     if (d && !d->ref.deref())
         delete d;
@@ -150,7 +149,7 @@ QAuthenticator::~QAuthenticator()
 /*!
     Constructs a copy of \a other.
 */
-QAuthenticator::QAuthenticator(const QAuthenticator &other)
+QHttpAuthenticator::QHttpAuthenticator(const QHttpAuthenticator &other)
     : d(other.d)
 {
     if (d)
@@ -160,7 +159,7 @@ QAuthenticator::QAuthenticator(const QAuthenticator &other)
 /*!
     Assigns the contents of \a other to this authenticator.
 */
-QAuthenticator &QAuthenticator::operator=(const QAuthenticator &other)
+QHttpAuthenticator &QHttpAuthenticator::operator=(const QHttpAuthenticator &other)
 {
     if (d == other.d)
         return *this;
@@ -178,7 +177,7 @@ QAuthenticator &QAuthenticator::operator=(const QAuthenticator &other)
     Returns true if this authenticator is identical to \a other; otherwise
     returns false.
 */
-bool QAuthenticator::operator==(const QAuthenticator &other) const
+bool QHttpAuthenticator::operator==(const QHttpAuthenticator &other) const
 {
     if (d == other.d)
         return true;
@@ -189,8 +188,28 @@ bool QAuthenticator::operator==(const QAuthenticator &other) const
         && d->options == other.d->options;
 }
 
+QHttpAuthenticator &QHttpAuthenticator::operator=(const QAuthenticator& auth)
+{
+    detach();
+    d->user = auth.user();
+    d->password = auth.password();
+    d->options = auth.options();
+    return *this;
+}
+
+QAuthenticator QHttpAuthenticator::toQAuthenticator()
+{
+    QAuthenticator rv;
+    rv.setUser(d->user);
+    rv.setPassword(d->password);
+    foreach (const QString& option, d->options.keys())
+        rv.setOption(option, d->options.value(option));
+    return rv;
+}
+
+
 /*!
-    \fn bool QAuthenticator::operator!=(const QAuthenticator &other) const
+    \fn bool QHttpAuthenticator::operator!=(const QHttpAuthenticator &other) const
 
     Returns true if this authenticator is different from \a other; otherwise
     returns false.
@@ -199,7 +218,7 @@ bool QAuthenticator::operator==(const QAuthenticator &other) const
 /*!
   returns the user used for authentication.
 */
-QString QAuthenticator::user() const
+QString QHttpAuthenticator::user() const
 {
     return d ? d->user : QString();
 }
@@ -209,13 +228,13 @@ QString QAuthenticator::user() const
 
   \sa QNetworkAccessManager::authenticationRequired()
 */
-void QAuthenticator::setUser(const QString &user)
+void QHttpAuthenticator::setUser(const QString &user)
 {
     detach();
     int separatorPosn = 0;
 
     switch(d->method) {
-    case QAuthenticatorPrivate::Ntlm:
+    case QHttpAuthenticatorPrivate::Ntlm:
         if((separatorPosn = user.indexOf(QLatin1String("\\"))) != -1) {
             //domain name is present
             d->realm.clear();
@@ -239,7 +258,7 @@ void QAuthenticator::setUser(const QString &user)
 /*!
   returns the password used for authentication.
 */
-QString QAuthenticator::password() const
+QString QHttpAuthenticator::password() const
 {
     return d ? d->password : QString();
 }
@@ -249,7 +268,7 @@ QString QAuthenticator::password() const
 
   \sa QNetworkAccessManager::authenticationRequired()
 */
-void QAuthenticator::setPassword(const QString &password)
+void QHttpAuthenticator::setPassword(const QString &password)
 {
     detach();
     d->password = password;
@@ -258,22 +277,22 @@ void QAuthenticator::setPassword(const QString &password)
 /*!
   \internal
 */
-void QAuthenticator::detach()
+void QHttpAuthenticator::detach()
 {
     if (!d) {
-        d = new QAuthenticatorPrivate;
+        d = new QHttpAuthenticatorPrivate;
         d->ref.store(1);
         return;
     }
 
     qAtomicDetach(d);
-    d->phase = QAuthenticatorPrivate::Start;
+    d->phase = QHttpAuthenticatorPrivate::Start;
 }
 
 /*!
   returns the realm requiring authentication.
 */
-QString QAuthenticator::realm() const
+QString QHttpAuthenticator::realm() const
 {
     return d ? d->realm : QString();
 }
@@ -281,25 +300,25 @@ QString QAuthenticator::realm() const
 /*!
     \since 4.7
     Returns the value related to option \a opt if it was set by the server.
-    See \l{QAuthenticator#Options} for more information on incoming options.
+    See \l{QHttpAuthenticator#Options} for more information on incoming options.
     If option \a opt isn't found, an invalid QVariant will be returned.
 
-    \sa options(), QAuthenticator#Options
+    \sa options(), QHttpAuthenticator#Options
 */
-QVariant QAuthenticator::option(const QString &opt) const
+QVariant QHttpAuthenticator::option(const QString &opt) const
 {
     return d ? d->options.value(opt) : QVariant();
 }
 
 /*!
     \since 4.7
-    Returns all incoming options set in this QAuthenticator object by parsing
-    the server reply. See \l{QAuthenticator#Options} for more information
+    Returns all incoming options set in this QHttpAuthenticator object by parsing
+    the server reply. See \l{QHttpAuthenticator#Options} for more information
     on incoming options.
 
-    \sa option(), QAuthenticator#Options
+    \sa option(), QHttpAuthenticator#Options
 */
-QVariantHash QAuthenticator::options() const
+QVariantHash QHttpAuthenticator::options() const
 {
     return d ? d->options : QVariantHash();
 }
@@ -308,11 +327,11 @@ QVariantHash QAuthenticator::options() const
     \since 4.7
 
     Sets the outgoing option \a opt to value \a value.
-    See \l{QAuthenticator#Options} for more information on outgoing options.
+    See \l{QHttpAuthenticator#Options} for more information on outgoing options.
 
-    \sa options(), option(), QAuthenticator#Options
+    \sa options(), option(), QHttpAuthenticator#Options
 */
-void QAuthenticator::setOption(const QString &opt, const QVariant &value)
+void QHttpAuthenticator::setOption(const QString &opt, const QVariant &value)
 {
     detach();
     d->options.insert(opt, value);
@@ -322,12 +341,12 @@ void QAuthenticator::setOption(const QString &opt, const QVariant &value)
 /*!
     Returns true if the authenticator is null.
 */
-bool QAuthenticator::isNull() const
+bool QHttpAuthenticator::isNull() const
 {
     return !d;
 }
 
-QAuthenticatorPrivate::QAuthenticatorPrivate()
+QHttpAuthenticatorPrivate::QHttpAuthenticatorPrivate()
     : ref(0)
     , method(None)
     , hasFailed(false)
@@ -340,7 +359,7 @@ QAuthenticatorPrivate::QAuthenticatorPrivate()
 }
 
 #ifndef QT_NO_HTTP
-void QAuthenticatorPrivate::parseHttpResponse(const QHttpResponseHeader &header, bool isProxy)
+void QHttpAuthenticatorPrivate::parseHttpResponse(const QHttpResponseHeader &header, bool isProxy)
 {
     const QList<QPair<QString, QString> > values = header.values();
     QList<QPair<QByteArray, QByteArray> > rawValues;
@@ -354,7 +373,7 @@ void QAuthenticatorPrivate::parseHttpResponse(const QHttpResponseHeader &header,
 }
 #endif
 
-void QAuthenticatorPrivate::parseHttpResponse(const QList<QPair<QByteArray, QByteArray> > &values, bool isProxy)
+void QHttpAuthenticatorPrivate::parseHttpResponse(const QList<QPair<QByteArray, QByteArray> > &values, bool isProxy)
 {
     const char *search = isProxy ? "proxy-authenticate" : "www-authenticate";
 
@@ -414,26 +433,26 @@ void QAuthenticatorPrivate::parseHttpResponse(const QList<QPair<QByteArray, QByt
     }
 }
 
-QByteArray QAuthenticatorPrivate::calculateResponse(const QByteArray &requestMethod, const QByteArray &path)
+QByteArray QHttpAuthenticatorPrivate::calculateResponse(const QByteArray &requestMethod, const QByteArray &path)
 {
     QByteArray response;
     const char *methodString = 0;
     switch(method) {
-    case QAuthenticatorPrivate::None:
+    case QHttpAuthenticatorPrivate::None:
         methodString = "";
         phase = Done;
         break;
-    case QAuthenticatorPrivate::Plain:
+    case QHttpAuthenticatorPrivate::Plain:
         response = '\0' + user.toUtf8() + '\0' + password.toUtf8();
         phase = Done;
         break;
-    case QAuthenticatorPrivate::Basic:
+    case QHttpAuthenticatorPrivate::Basic:
         methodString = "Basic ";
         response = user.toLatin1() + ':' + password.toLatin1();
         response = response.toBase64();
         phase = Done;
         break;
-    case QAuthenticatorPrivate::Login:
+    case QHttpAuthenticatorPrivate::Login:
         if (challenge.contains("VXNlciBOYW1lAA==")) {
             response = user.toUtf8().toBase64();
             phase = Phase2;
@@ -442,14 +461,14 @@ QByteArray QAuthenticatorPrivate::calculateResponse(const QByteArray &requestMet
             phase = Done;
         }
         break;
-    case QAuthenticatorPrivate::CramMd5:
+    case QHttpAuthenticatorPrivate::CramMd5:
         break;
-    case QAuthenticatorPrivate::DigestMd5:
+    case QHttpAuthenticatorPrivate::DigestMd5:
         methodString = "Digest ";
         response = digestMd5Response(challenge, requestMethod, path);
         phase = Done;
         break;
-    case QAuthenticatorPrivate::Ntlm:
+    case QHttpAuthenticatorPrivate::Ntlm:
         methodString = "NTLM ";
         if (challenge.isEmpty()) {
             response = qNtlmPhase1().toBase64();
@@ -470,7 +489,7 @@ QByteArray QAuthenticatorPrivate::calculateResponse(const QByteArray &requestMet
 
 // ---------------------------- Digest Md5 code ----------------------------------------
 
-QHash<QByteArray, QByteArray> QAuthenticatorPrivate::parseDigestAuthenticationChallenge(const QByteArray &challenge)
+QHash<QByteArray, QByteArray> QHttpAuthenticatorPrivate::parseDigestAuthenticationChallenge(const QByteArray &challenge)
 {
     QHash<QByteArray, QByteArray> options;
     // parse the challenge
@@ -610,7 +629,7 @@ static QByteArray digestMd5ResponseHelper(
     return hash.result().toHex();
 }
 
-QByteArray QAuthenticatorPrivate::digestMd5Response(const QByteArray &challenge, const QByteArray &method, const QByteArray &path)
+QByteArray QHttpAuthenticatorPrivate::digestMd5Response(const QByteArray &challenge, const QByteArray &method, const QByteArray &path)
 {
     QHash<QByteArray,QByteArray> options = parseDigestAuthenticationChallenge(challenge);
 
@@ -1042,7 +1061,7 @@ static QString qStringFromUcs2Le(const QByteArray& src)
 }
 
 #ifdef NTLMV1_CLIENT
-static QByteArray qEncodeNtlmResponse(const QAuthenticatorPrivate *ctx, const QNtlmPhase2Block& ch)
+static QByteArray qEncodeNtlmResponse(const QHttpAuthenticatorPrivate *ctx, const QNtlmPhase2Block& ch)
 {
     QCryptographicHash md4(QCryptographicHash::Md4);
     QByteArray asUcs2Le = qStringAsUcs2Le(ctx->password);
@@ -1064,7 +1083,7 @@ static QByteArray qEncodeNtlmResponse(const QAuthenticatorPrivate *ctx, const QN
 }
 
 
-static QByteArray qEncodeLmResponse(const QAuthenticatorPrivate *ctx, const QNtlmPhase2Block& ch)
+static QByteArray qEncodeLmResponse(const QHttpAuthenticatorPrivate *ctx, const QNtlmPhase2Block& ch)
 {
     QByteArray hash(21, 0);
     QByteArray key(14, 0);
@@ -1167,7 +1186,7 @@ QByteArray qEncodeHmacMd5(QByteArray &key, const QByteArray &message)
     return hmacDigest;
 }
 
-static QByteArray qCreatev2Hash(const QAuthenticatorPrivate *ctx,
+static QByteArray qCreatev2Hash(const QHttpAuthenticatorPrivate *ctx,
                                 QNtlmPhase3Block *phase3)
 {
     Q_ASSERT(phase3 != 0);
@@ -1190,7 +1209,7 @@ static QByteArray qCreatev2Hash(const QAuthenticatorPrivate *ctx,
     return phase3->v2Hash;
 }
 
-static QByteArray clientChallenge(const QAuthenticatorPrivate *ctx)
+static QByteArray clientChallenge(const QHttpAuthenticatorPrivate *ctx)
 {
     Q_ASSERT(ctx->cnonce.size() >= 8);
     QByteArray clientCh = ctx->cnonce.right(8);
@@ -1223,7 +1242,7 @@ static QByteArray qExtractServerTime(const QByteArray& targetInfoBuff)
     return timeArray;
 }
 
-static QByteArray qEncodeNtlmv2Response(const QAuthenticatorPrivate *ctx,
+static QByteArray qEncodeNtlmv2Response(const QHttpAuthenticatorPrivate *ctx,
                                         const QNtlmPhase2Block& ch,
                                         QNtlmPhase3Block *phase3)
 {
@@ -1294,7 +1313,7 @@ static QByteArray qEncodeNtlmv2Response(const QAuthenticatorPrivate *ctx,
     return ntChallengeResp;
 }
 
-static QByteArray qEncodeLmv2Response(const QAuthenticatorPrivate *ctx,
+static QByteArray qEncodeLmv2Response(const QHttpAuthenticatorPrivate *ctx,
                                       const QNtlmPhase2Block& ch,
                                       QNtlmPhase3Block *phase3)
 {
@@ -1356,7 +1375,7 @@ static bool qNtlmDecodePhase2(const QByteArray& data, QNtlmPhase2Block& ch)
 }
 
 
-static QByteArray qNtlmPhase3(QAuthenticatorPrivate *ctx, const QByteArray& phase2data)
+static QByteArray qNtlmPhase3(QHttpAuthenticatorPrivate *ctx, const QByteArray& phase2data)
 {
     QNtlmPhase2Block ch;
     if (!qNtlmDecodePhase2(phase2data, ch))

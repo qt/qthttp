@@ -56,8 +56,6 @@
 #include <QtCore/qbytearray.h>
 #include <QtCore/qlist.h>
 
-QT_BEGIN_NAMESPACE
-
 class QRingBuffer
 {
 public:
@@ -445,7 +443,5 @@ private:
     int basicBlockSize;
     int bufferSize;
 };
-
-QT_END_NAMESPACE
 
 #endif // QRINGBUFFER_P_H
