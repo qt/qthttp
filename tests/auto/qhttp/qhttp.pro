@@ -1,9 +1,8 @@
 CONFIG += testcase
 SOURCES  += tst_qhttp.cpp
 INCLUDEPATH += "../../../include"
-LIBS += -L../../../lib -lqhttp
 
-QT = core network testlib
+QT = core network testlib http
 
 wince*: {
     webFiles.files = webserver/*
