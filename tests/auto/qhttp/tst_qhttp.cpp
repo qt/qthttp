@@ -331,11 +331,6 @@ void tst_QHttp::get_data()
 	QTest::newRow( QString("failprot_02_%1").arg(i).toLatin1() ) << QtNetworkSettings::serverName() << 80u
 	    << QString("qtest/rfc3252.txt") << 1 << 400 << QByteArray() << (bool)(i==1);
 
-  // qt.nokia.com/doc uses transfer-encoding=chunked
-    /* qt.nokia.com/doc no longer seams to be using chuncked encodig.
-    QTest::newRow( QString("chunked_01_%1").arg(i).toLatin1() ) << QString("test.troll.no") << 80u
-            << QString("/") << 1 << 200 << testhtml << (bool)(i==1);
-    */
 	QTest::newRow( QString("chunked_02_%1").arg(i).toLatin1() ) << QtNetworkSettings::serverName() << 80u
 	    << QString("/qtest/cgi-bin/rfc.cgi") << 1 << 200 << rfc3252 << (bool)(i==1);
     }
@@ -432,10 +427,6 @@ void tst_QHttp::head_data()
     QTest::newRow( "failprot_02" ) << QtNetworkSettings::serverName() << 80u
 	<< QString("qtest/rfc3252.txt") << 1 << 400 << 0u;
 
-    /* qt.nokia.com/doc no longer seams to be using chuncked encodig.
-    QTest::newRow( "chunked_01" ) << QString("qt.nokia.com/doc") << 80u
-	<< QString("/index.html") << 1 << 200 << 0u;
-    */
     QTest::newRow( "chunked_02" ) << QtNetworkSettings::serverName() << 80u
 	<< QString("/qtest/cgi-bin/rfc.cgi") << 1 << 200 << 0u;
 }
@@ -783,13 +774,13 @@ void tst_QHttp::proxy_data()
     QTest::addColumn<QString>("proxypass");
 
     QTest::newRow("qt-test-server") << QtNetworkSettings::serverName() << 3128
-                                 << QString::fromLatin1("qt.nokia.com") << QString::fromLatin1("/")
+                                 << QtNetworkSettings::serverName() << QString::fromLatin1("/")
                                  << QString::fromLatin1("") << QString::fromLatin1("");
     QTest::newRow("qt-test-server pct") << QtNetworkSettings::serverName() << 3128
-                                 << QString::fromLatin1("qt.nokia.com") << QString::fromLatin1("/%64eveloper")
+                                 << QtNetworkSettings::serverName() << QString::fromLatin1("/")
                                  << QString::fromLatin1("") << QString::fromLatin1("");
     QTest::newRow("qt-test-server-basic") << QtNetworkSettings::serverName() << 3129
-                                 << QString::fromLatin1("qt.nokia.com") << QString::fromLatin1("/")
+                                 << QtNetworkSettings::serverName() << QString::fromLatin1("/")
                                  << QString::fromLatin1("qsockstest") << QString::fromLatin1("password");
 
 #if 0
@@ -797,7 +788,7 @@ void tst_QHttp::proxy_data()
     // the tst_QHttp class is too strict to handle the byte counts sent by dataSendProgress
     // So don't run this test:
     QTest::newRow("qt-test-server-ntlm") << QtNetworkSettings::serverName() << 3130
-                                 << QString::fromLatin1("qt.nokia.com") << QString::fromLatin1("/")
+                                 << QtNetworkSettings::serverName() << QString::fromLatin1("/")
                                  << QString::fromLatin1("qsockstest") << QString::fromLatin1("password");
 #endif
 }
@@ -1204,10 +1195,10 @@ void tst_QHttp::reconnect()
     QHttp http;
 
     QObject::connect(&http, SIGNAL(stateChanged(int)), this, SLOT(reconnect_state(int)));
-    http.setHost("trolltech.com", 80);
-    http.get("/company/index.html");
-    http.setHost("trolltech.com", 8080);
-    http.get("/company/index.html");
+    http.setHost(QtNetworkSettings::serverName(), 80);
+    http.get("/");
+    http.setHost(QtNetworkSettings::serverName(), 8080);
+    http.get("/");
 
     QTestEventLoop::instance().enterLoop(60);
     if (QTestEventLoop::instance().timeout())
@@ -1305,7 +1296,7 @@ void tst_QHttp::pctEncodedPath()
 
 void tst_QHttp::caseInsensitiveKeys()
 {
-    QHttpResponseHeader header("HTTP/1.1 200 OK\r\nContent-Length: 213\r\nX-Been-There: True\r\nLocation: http://www.TrollTech.com/\r\n\r\n");
+    QHttpResponseHeader header("HTTP/1.1 200 OK\r\nContent-Length: 213\r\nX-Been-There: True\r\nLocation: http://www.Qt-Project.org/\r\n\r\n");
     QVERIFY(header.hasKey("Content-Length"));
     QVERIFY(header.hasKey("X-Been-There"));
     QVERIFY(header.hasKey("Location"));
@@ -1314,16 +1305,16 @@ void tst_QHttp::caseInsensitiveKeys()
     QVERIFY(header.hasKey("location"));
     QCOMPARE(header.value("Content-Length"), QString("213"));
     QCOMPARE(header.value("X-Been-There"), QString("True"));
-    QCOMPARE(header.value("Location"), QString("http://www.TrollTech.com/"));
+    QCOMPARE(header.value("Location"), QString("http://www.Qt-Project.org/"));
     QCOMPARE(header.value("content-length"), QString("213"));
     QCOMPARE(header.value("x-been-there"), QString("True"));
-    QCOMPARE(header.value("location"), QString("http://www.TrollTech.com/"));
-    QCOMPARE(header.allValues("location"), QStringList("http://www.TrollTech.com/"));
+    QCOMPARE(header.value("location"), QString("http://www.Qt-Project.org/"));
+    QCOMPARE(header.allValues("location"), QStringList("http://www.Qt-Project.org/"));
 
     header.addValue("Content-Length", "213");
     header.addValue("Content-Length", "214");
     header.addValue("Content-Length", "215");
-    qDebug() << header.toString();
+    QCOMPARE(header.allValues("Content-Length"), QStringList() << "213" << "213" << "214" << "215");
 }
 
 void tst_QHttp::proxyAuthenticationRequired(const QNetworkProxy &, QAuthenticator *auth)
@@ -1422,7 +1413,7 @@ void tst_QHttp::cachingProxyAndSsl()
 void tst_QHttp::emptyBodyInReply()
 {
     // Note: if this test starts failing, please verify the date on the file
-    // returned by Apache on http://netiks.troll.no/
+    // returned by Apache on the network test server
     // It is right now hard-coded to the date below
     QHttp http;
     http.setHost(QtNetworkSettings::serverName());
