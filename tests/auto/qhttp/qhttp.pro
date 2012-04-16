@@ -4,6 +4,8 @@ INCLUDEPATH += "../../../include"
 
 QT = core network testlib http
 
+TARGET = tst_qhttp
+
 wince*: {
     webFiles.files = webserver/*
     webFiles.path = webserver
@@ -18,5 +20,3 @@ wince*: {
 } else {
     DEFINES += SRCDIR=\\\"$$PWD/\\\"
 }
-
-CONFIG+=insignificant_test # QTQAINFRA-428
