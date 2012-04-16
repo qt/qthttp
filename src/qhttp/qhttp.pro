@@ -1,12 +1,16 @@
-TEMPLATE = lib
+load(qt_module)
+
+TARGET = QtHttp
 CONFIG += staticlib
 CONFIG -= shared
+QT = core network
 
-QT += network network-private
+CONFIG += module
+MODULE_PRI = ../../modules/qt_http.pri
+MODULE = http
+
+load(qt_module_config)
 
 # Input
 HEADERS += qhttp.h qringbuffer_p.h qhttpauthenticator_p.h
 SOURCES += qhttp.cpp qhttpauthenticator.cpp
-
-# Output
-DESTDIR = "../../lib"
