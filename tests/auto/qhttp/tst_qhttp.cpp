@@ -57,7 +57,7 @@
 # include <qsslsocket.h>
 #endif
 
-#include "../../network-settings.h"
+#include "../network-settings.h"
 
 Q_DECLARE_METATYPE(QHttpResponseHeader)
 
