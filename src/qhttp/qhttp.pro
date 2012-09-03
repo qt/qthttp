@@ -1,15 +1,14 @@
-load(qt_module)
+load(qt_build_config)
 
 TARGET = QtHttp
 CONFIG += static
 CONFIG -= shared
 QT = core network
 
-CONFIG += module
 MODULE_PRI = ../../modules/qt_http.pri
 MODULE = http
 
-load(qt_module_config)
+load(qt_module)
 
 # Input
 HEADERS += qhttp.h qringbuffer_p.h qhttpauthenticator_p.h
