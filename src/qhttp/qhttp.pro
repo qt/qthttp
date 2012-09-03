@@ -5,11 +5,8 @@ CONFIG += static
 CONFIG -= shared
 QT = core network
 
-CONFIG += module
 MODULE_PRI = ../../modules/qt_http.pri
 MODULE = http
-
-load(qt_module_config)
 
 # Input
 HEADERS += qhttp.h qringbuffer_p.h qhttpauthenticator_p.h
