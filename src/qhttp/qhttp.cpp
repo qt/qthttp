@@ -2432,7 +2432,7 @@ void QHttpPrivate::_q_slotSendRequest()
         proxyUrl.setHost(hostName);
         if (port && port != 80)
             proxyUrl.setPort(port);
-        QString request = QString::fromAscii(proxyUrl.resolved(QUrl::fromEncoded(header.path().toLatin1())).toEncoded());
+        QString request = QString::fromLatin1(proxyUrl.resolved(QUrl::fromEncoded(header.path().toLatin1())).toEncoded());
 
         header.setRequest(header.method(), request, header.majorVersion(), header.minorVersion());
         header.setValue(QLatin1String("Proxy-Connection"), QLatin1String("keep-alive"));
@@ -2706,7 +2706,7 @@ void QHttpPrivate::_q_slotReadyRead()
         bool end = false;
         QString tmp;
         while (!end && socket->canReadLine()) {
-            tmp = QString::fromAscii(socket->readLine());
+            tmp = QString::fromLatin1(socket->readLine());
             if (tmp == QLatin1String("\r\n") || tmp == QLatin1String("\n") || tmp.isEmpty())
                 end = true;
             else
@@ -2857,7 +2857,7 @@ void QHttpPrivate::_q_slotReadyRead()
                 if (chunkedSize == 0) {
                     if (!socket->canReadLine())
                         break;
-                    QString sizeString = QString::fromAscii(socket->readLine());
+                    QString sizeString = QString::fromLatin1(socket->readLine());
                     int tPos = sizeString.indexOf(QLatin1Char(';'));
                     if (tPos != -1)
                         sizeString.truncate(tPos);
@@ -2876,7 +2876,7 @@ void QHttpPrivate::_q_slotReadyRead()
 
                 // read trailer
                 while (chunkedSize == -2 && socket->canReadLine()) {
-                    QString read = QString::fromAscii(socket->readLine());
+                    QString read = QString::fromLatin1(socket->readLine());
                     if (read == QLatin1String("\r\n") || read == QLatin1String("\n"))
                         chunkedSize = -1;
                 }
