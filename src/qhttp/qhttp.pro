@@ -13,4 +13,3 @@ load(qt_module)
 # Input
 HEADERS += qhttp.h qringbuffer_p.h qhttpauthenticator_p.h
 SOURCES += qhttp.cpp qhttpauthenticator.cpp
-DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
